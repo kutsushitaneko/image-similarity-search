@@ -1,11 +1,11 @@
-# Oracle Database 23ai AI Vector Search と Japanese Stable CLIP による画像検索
+# Oracle Database 23ai AI Vector Search と Japanese Stable CLIP によるマルチモーダル画像検索
 
 このプロジェクトは、Oracle Database 23ai AI Vector Search を使ってテキストから画像を検索したり、画像からその画像と類似した画像を検索するマルチモーダル・アプリケーションのサンプルです。
 テキストと画像のマルチモーダルな検索のためのベクトル化には、Japanese Stable CLIP を使っています。日本語Stable CLIP は、GPUの無い環境でも動作する軽快なモデルです。
 ![Oracle Database 23ai AI Vector Search と Japanese Stable CLIP による画像検索](img/initial.jpg)
 
 ## 解説記事
-執筆予定
+[Qiita: Oracle AI Vector Search と Japanese Stable CLIP によるマルチモーダル画像検索](https://qiita.com/yuji-arakawa/items/9cd485debd5b0d18aca2)
 
 ## Japanese Stable CLIP とは
 以下のブログ記事をご参照ください。
