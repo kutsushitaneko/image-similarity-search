@@ -37,78 +37,84 @@
     なお、この手順の中でユーザー（docuser） に様々な権限を付与していますが、これに VIEW を作成する権限も追加します。なお、ユーザー名は 1-1, 1-2 では vector となっていて、1-6 では docuser となっていますがお好みの任意の名前で作成してください。作成したユーザー名とパスワードは、.env ファイルに設定しますのでメモしておいてください。
 
     ユーザー名が docuser の場合は以下の SQL を sqlplus に sys ユーザーでログインした状態で実行します。
-```
-sqlplus sys@localhost:1521/freepdb1 as sysdba
-```
-```
-GRANT CREATE VIEW TO docuser;
-```
+    ```
+    sqlplus sys@localhost:1521/freepdb1 as sysdba
+    ```
+    ```
+    GRANT CREATE VIEW TO docuser;
+    ```
 
 2. テーブルの作成
 
-sqlplus でユーザー（例えば、docuser）にログインした状態で以下の SQL を実行します。
-```
--- IMAGES テーブル
-CREATE TABLE IMAGES (
-    image_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    image_data BLOB,
-    file_name VARCHAR2(255),
-    file_type VARCHAR2(50),
-    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    generation_prompt CLOB
-);
+    sqlplus でデータベースへログインします（例です。ユーザー名、DSNは適宜書き換えてください）
+    ```
+    sqlplus docuser@localhost:1521/freepdb1
+    ```
 
--- EMBEDDING_MODELS テーブル
-CREATE TABLE EMBEDDING_MODELS (
-    model_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    model_name VARCHAR2(255),
-    model_version VARCHAR2(50),
-    is_current CHAR(1) CHECK (is_current IN ('Y', 'N')),
-    vector_dimension NUMBER
-);
+    以下のSQLで必要なテーブル群とインデックスを作成します
 
--- IMAGE_EMBEDDINGS テーブル
-CREATE TABLE IMAGE_EMBEDDINGS (
-    embedding_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    image_id NUMBER,
-    model_id NUMBER,
-    embedding VECTOR,
-    CONSTRAINT fk_image_embedding FOREIGN KEY (image_id) REFERENCES IMAGES(image_id),
-    CONSTRAINT fk_model_embedding FOREIGN KEY (model_id) REFERENCES EMBEDDING_MODELS(model_id)
-);
+    ```
+    -- IMAGES テーブル
+    CREATE TABLE IMAGES (
+        image_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        image_data BLOB,
+        file_name VARCHAR2(255),
+        file_type VARCHAR2(50),
+        upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        generation_prompt CLOB
+    );
 
--- Vector indexの作成
-CREATE VECTOR INDEX image_embedding_idx ON IMAGE_EMBEDDINGS(embedding) ORGANIZATION NEIGHBOR PARTITIONS
-WITH DISTANCE DOT;
+    -- EMBEDDING_MODELS テーブル
+    CREATE TABLE EMBEDDING_MODELS (
+        model_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        model_name VARCHAR2(255),
+        model_version VARCHAR2(50),
+        is_current CHAR(1) CHECK (is_current IN ('Y', 'N')),
+        vector_dimension NUMBER
+    );
 
--- IMAGE_DESCRIPTIONS テーブル（変更なし）
-CREATE TABLE IMAGE_DESCRIPTIONS (
-    description_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    image_id NUMBER,
-    description CLOB,
-    CONSTRAINT fk_image_description FOREIGN KEY (image_id) REFERENCES IMAGES(image_id)
-);
+    -- IMAGE_EMBEDDINGS テーブル
+    CREATE TABLE IMAGE_EMBEDDINGS (
+        embedding_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        image_id NUMBER,
+        model_id NUMBER,
+        embedding VECTOR,
+        CONSTRAINT fk_image_embedding FOREIGN KEY (image_id) REFERENCES IMAGES(image_id),
+        CONSTRAINT fk_model_embedding FOREIGN KEY (model_id) REFERENCES EMBEDDING_MODELS(model_id)
+    );
 
--- 全文検索インデックスの作成
-CREATE INDEX idx_image_prompt ON IMAGES(generation_prompt) 
-INDEXTYPE IS CTXSYS.CONTEXT PARAMETERS ('SYNC (ON COMMIT)');
+    -- Vector indexの作成
+    CREATE VECTOR INDEX image_embedding_idx ON IMAGE_EMBEDDINGS(embedding) ORGANIZATION NEIGHBOR PARTITIONS
+    WITH DISTANCE DOT;
 
-CREATE INDEX idx_image_description ON IMAGE_DESCRIPTIONS(description) 
-INDEXTYPE IS CTXSYS.CONTEXT PARAMETERS ('SYNC (ON COMMIT)');
+    -- IMAGE_DESCRIPTIONS テーブル（変更なし）
+    CREATE TABLE IMAGE_DESCRIPTIONS (
+        description_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        image_id NUMBER,
+        description CLOB,
+        CONSTRAINT fk_image_description FOREIGN KEY (image_id) REFERENCES IMAGES(image_id)
+    );
 
--- 現在使用中のモデルを取得するビュー
-CREATE VIEW CURRENT_EMBEDDING_MODEL AS
-SELECT model_id, model_name, model_version, vector_dimension
-FROM EMBEDDING_MODELS
-WHERE is_current = 'Y';
+    -- 全文検索インデックスの作成
+    CREATE INDEX idx_image_prompt ON IMAGES(generation_prompt) 
+    INDEXTYPE IS CTXSYS.CONTEXT PARAMETERS ('SYNC (ON COMMIT)');
 
--- 現在のモデルによるエンベディングを取得するビュー
-CREATE VIEW CURRENT_IMAGE_EMBEDDINGS AS
-SELECT ie.embedding_id, ie.image_id, ie.embedding
-FROM IMAGE_EMBEDDINGS ie
-JOIN CURRENT_EMBEDDING_MODEL cem ON ie.model_id = cem.model_id;
+    CREATE INDEX idx_image_description ON IMAGE_DESCRIPTIONS(description) 
+    INDEXTYPE IS CTXSYS.CONTEXT PARAMETERS ('SYNC (ON COMMIT)');
 
-```
+    -- 現在使用中のモデルを取得するビュー
+    CREATE VIEW CURRENT_EMBEDDING_MODEL AS
+    SELECT model_id, model_name, model_version, vector_dimension
+    FROM EMBEDDING_MODELS
+    WHERE is_current = 'Y';
+
+    -- 現在のモデルによるエンベディングを取得するビュー
+    CREATE VIEW CURRENT_IMAGE_EMBEDDINGS AS
+    SELECT ie.embedding_id, ie.image_id, ie.embedding
+    FROM IMAGE_EMBEDDINGS ie
+    JOIN CURRENT_EMBEDDING_MODEL cem ON ie.model_id = cem.model_id;
+
+    ```
 
 
 ## 本アプリのインストール
