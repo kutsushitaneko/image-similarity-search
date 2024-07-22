@@ -20,11 +20,14 @@
 - PNGファイルのテキストチャンク情報の抽出と保存
 - GPU の無い環境でも動作
 
-## 動作条件
+## 前提条件
 
 - Python 3.10以上
 - Oracle Database 23ai インスタンス
-- CPU上でも動作可能
+- CPU上でも動作可能（GPUがあればなお良い）
+- Hugging Face のアカウントがあること（[Hugging Face アカウント作成ページ](https://huggingface.co/join) で無料で登録することができます）
+- Hugging Face の User Access Token を取得していること（[Hugging Face User Access Token 作成ページ](https://huggingface.co/settings/tokens) で無料で取得できます。"Type" は、"READ"）
+- 動作は  OCI の VM.Standard3.Flex Compute Shape + Oracle Linux 8（CPUのみ） とローカルの Windows 11(CPUのみの場合とGPU利用の場合の両方) で確認しています。
 
 ## データベース環境のセットアップ
 1. データベースのインストール
@@ -110,36 +113,102 @@ JOIN CURRENT_EMBEDDING_MODEL cem ON ie.model_id = cem.model_id;
 
 ## 本アプリのインストール
 
-1. リポジトリをクローンします：
+データベースインスタンスが稼働しているサーバー（OCIコンピュートインスタンスなど）のローカルにインストールする場合以外は、本アプリケーションがネットワーク越しに Oracle Database のリスナーへアクセスできるよう Firewall 等の設定を行ってください（補足予定）。
 
-```
-git clone https://github.com/kutsushitaneko/image-similarity-search.git
-cd image-similarity-search
-```
+1. リポジトリをクローン：
 
-2. 仮想環境を作成し、アクティベートします：
+    git がインストールされていない場合は、以下のコマンドでインストールします。
+    ```
+    sudo dnf install git -y
+    ```
 
-```
-python -m venv .venv
-source .venv/bin/activate  # Windowsの場合: .venv\Scripts\activate
-```
+    リポジトリをクローンします。
+    ```
+    git clone https://github.com/kutsushitaneko/image-similarity-search.git
+    cd image-similarity-search
+    ```
+
+2. Python のバージョン確認  
+
+    次のコマンドで Python のバージョンを確認します。3.10 以上であることを確認してください。
+
+    ```
+    python --version
+    ```
+    3.10 よりも前のバージョンである場合は新しいバージョンをインストールします。以下は、Oracle Linux 8 に Python 3.11 をインストールする例です。
+
+    ```
+    sudo dnf update -y
+    sudo dnf install -y oracle-epel-release-el8
+    sudo dnf config-manager --set-enabled ol8_codeready_builder
+    sudo dnf install -y python3.11
+    python --version
+    ```
+
+2. （オプション）仮想環境の作成、アクティベート
+
+    複数バージョンの Python がインストールされているサーバーで Python 3.11 の仮想環境を作成する例
+    ```
+    python3.11 -m venv .venv
+    source .venv/bin/activate  # Windowsの場合: .venv\Scripts\activate
+    ```
 
 3. 必要なパッケージをインストールします：
 
-```
-pip install -r requirements.txt
-```
+    ```
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    ```
 
 4. `.env`ファイルを作成し、以下の環境変数を設定します：
 
-your_username と your_password は、1-1 もしくは 1-2 で作成したデータベースにログインするためのユーザー名とパスワードです。
-your_database_dsn は、1-1 または 1-2 で設定したデータベースの接続情報です。
+    your_username と your_password は、1-1 もしくは 1-2 で作成したデータベースにログインするためのユーザー名とパスワードです。
+    your_database_dsn は、1-1 または 1-2 で設定したデータベースの接続情報です。
 
-```
-DB_USER=your_username
-DB_PASSWORD=your_password
-DB_DSN=your_database_dsn
-```
+    ```
+    DB_USER=your_username
+    DB_PASSWORD=your_password
+    DB_DSN=your_database_dsn
+    ```
+
+5. Hugging Face へログイン
+
+    Japanese Stable CLIP のモデルを使用するために、Hugging Face へログインします。
+
+    ```
+    huggingface-cli login
+    ```
+
+    Hugging Face のバナーが表示されてトークン（User Access Token）の入力を促されます。
+
+    ```
+    $ huggingface-cli login
+
+    _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
+    _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
+    _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
+    _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
+    _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
+
+    To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
+    Enter your token (input will not be visible):
+    ```
+
+    ここで Hugging Face のトークン（User Access Token）を入力します
+
+    ```
+    Add token as git credential? (Y/n)
+    ```
+
+    ここで、トークンを Git の認証情報として追加するかを選択します。どちらでも本アプリケーションの実行には影響ありません
+    トークンが正しければ次のように表示されます
+
+    ```
+    Token is valid (permission: read).
+    Your token has been saved to C:\Users\yujim\.cache\huggingface\token
+    Login successful
+    ```
+
 
 ## 使用方法
 
@@ -162,12 +231,12 @@ DB_DSN=your_database_dsn
 
 3. 検索システムの起動：
 
-    次の Python スクリプトを実行すると Gradio の UI が手元のブラウザに表示されます。
+    次の Python スクリプトで アプリケーションを起動します。ローカルで実行している場合は Gradio の UI が手元のブラウザに表示されます。
     ```
     python ImageSearch.py
     ```
 
-    自動的にブラウザが立ち上がらない場合は、ターミナルに表示されている `public URL` を手動でブラウザにコピーしてアクセスしてください。
+    OCI などのリモート環境などで自動的にブラウザが立ち上がらない場合は、ターミナルに表示されている `public URL` を手動でブラウザにコピーしてアクセスしてください。
 
     ```
     (.venv) ImageSearch $ python ImageSearch.py
@@ -179,14 +248,18 @@ DB_DSN=your_database_dsn
 
 ## 検索
 - 左上の「検索テキスト」エリアに検索テキストを入力して、「検索」ボタンを押すと、そのテキストに関連する画像が表示されます。
-![テキストによる画像検索（猫）](img\text_search_猫.jpg)
+![テキストによる画像検索（猫）](img\text_search_cat_jp.jpg)
 
+    別の条件で検索するには「クリア」ボタンを押して検索テキストをクリアします（検索ボタンが有効になります）。検索条件を指定せずに「検索ボタン」をクリックするとアップロード日付が新しい順に16枚の画像が表示されます。
     なお、ベクトル検索による類似性検索ですので、フィルタリングとは異なり無関係な画像も類似度が低い画像として表示されます。テキストとの類似性が高い画像が左上に表示され、右、下へいくほど類似度が低い画像となります。画像は類似度が高い順に16枚表示されます。
 - 右上の「検索画像」エリアに画像をアップロードして、「検索」ボタンを押すと、その画像に関連する画像が表示されます。
 
     こちらも同様にベクトル検索による類似性検索ですので、フィルタリングとは異なり無関係な画像も類似度が低い画像として表示されます。
+    ![画像による画像検索（猫）](img\text_search_cat_by_image.jpg)
 
 - 検索結果は中央のギャラリーエリアに表示されます。特定の画像をクリックして選択すると画像が拡大表示され、ギャラリーの下部にその画像の詳細が表示されます。
+
+    ![画像生成プロンプト](img\generation_prompt.jpg)
     - ファイル名
     - ベクトル距離
 
