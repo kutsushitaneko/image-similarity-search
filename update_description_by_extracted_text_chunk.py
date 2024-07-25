@@ -43,13 +43,21 @@ def process_image(image_path):
         image_id = result[0]
 
         if 'parameters' in chunks and any('Negative prompt' in chunk for chunk in chunks.values()):
+            # この画像は、Stabile Diffusion Web UI AUTOMATIC1111 版 により生成されたものと推測されます
             # すべてのチャンクをgeneration_promptに登録
             cursor.execute("""
                 UPDATE IMAGES
                 SET generation_prompt = :prompt
                 WHERE image_id = :image_id
             """, [formatted_chunks, image_id])
-
+        elif 'prompt' in chunks and 'workflow' in chunks:
+            # この画像は、ComfyUI により生成されたものと推測されます
+            # すべてのチャンクをgeneration_promptに登録
+            cursor.execute("""
+                UPDATE IMAGES
+                SET generation_prompt = :prompt
+                WHERE image_id = :image_id
+            """, [formatted_chunks, image_id])
         else:
             # すべてのチャンクをdescriptionに登録
             cursor.execute("""
