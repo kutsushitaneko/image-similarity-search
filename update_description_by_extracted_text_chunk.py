@@ -58,6 +58,14 @@ def process_image(image_path):
                 SET generation_prompt = :prompt
                 WHERE image_id = :image_id
             """, [formatted_chunks, image_id])
+        elif 'prompt' in chunks and 'prompt_3' in chunks:
+            # この画像は、SD3 モデルを使ったカスタムアプリケーションにより生成されたものと推測されます
+            # すべてのチャンクをgeneration_promptに登録
+            cursor.execute("""
+                UPDATE IMAGES
+                SET generation_prompt = :prompt
+                WHERE image_id = :image_id
+            """, [formatted_chunks, image_id])
         else:
             # すべてのチャンクをdescriptionに登録
             cursor.execute("""
